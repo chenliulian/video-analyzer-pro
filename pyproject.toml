@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video-analyzer-pro"
+version = "2.0.0"
+description = "智能视频分析工具 - 提取关键帧、语音识别、OCR文字识别、LLM精炼"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "VideoAnalyzer Team", email = "support@videoanalyzer.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["video", "ocr", "asr", "llm", "pdf", "transcription"]
+requires-python = ">=3.8"
+dependencies = [
+    "moviepy>=2.0.0",
+    "openai-whisper",
+    "torch>=2.0.0",
+    "ffmpeg-python>=0.2.0",
+    "pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "opencv-python>=4.8.0",
+    "dashscope>=1.14.0",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "librosa>=0.10.0",
+    "soundfile>=0.12.0",
+    "python-docx>=0.8.11",
+    "opencc-python-reimplemented>=0.1.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+video-analyzer = "video_analyzer.core.analyzer:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/video-analyzer-pro"
+Documentation = "https://github.com/yourusername/video-analyzer-pro/docs"
+Repository = "https://github.com/yourusername/video-analyzer-pro"
+Issues = "https://github.com/yourusername/video-analyzer-pro/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

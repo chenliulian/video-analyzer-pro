@@ -1,0 +1,28 @@
+moviepy>=2.0.0
+openai-whisper
+torch>=2.0.0
+ffmpeg-python>=0.2.0
+pillow>=10.0.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+
+# Pro版新增依赖 (v4.0)
+paddleocr>=2.7.0
+paddlepaddle>=2.5.0
+pytesseract>=0.3.10
+openai>=1.0.0
+python-dotenv>=1.0.0
+
+# 增强版音频处理 (v4.2) - 使用librosa替代pydub
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# 阿里云服务 (v4.3+)
+dashscope>=1.14.0  # Qwen OCR 和 Qwen ASR
+pydub>=0.25.1      # Qwen ASR 大文件切分 (可选,使用ffmpeg替代)
+
+# 文档生成 (v7.1+)
+python-docx>=0.8.11  # Word文档生成
+
+# 繁简转换 (v5.0)
+opencc-python-reimplemented>=0.1.7

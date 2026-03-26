@@ -1,0 +1,58 @@
+# 环境配置文件
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 视频和音频文件
+*.mp4
+*.mp3
+*.avi
+*.mov
+*.wav
+
+# 提取的帧
+extracted_frames/
+*.jpg
+*.jpeg
+*.png
+
+# 输出文件
+*.pdf
+*_transcript.txt
+*_ocr.txt
+*_refined.json
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# 测试临时文件
+temp_*.jpg
+temp_*.txt
