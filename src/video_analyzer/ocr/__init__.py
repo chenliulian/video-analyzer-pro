@@ -1,5 +1,5 @@
 """OCR模块 - 文字识别"""
 
-from .qwen_ocr import QwenOCR
+from .kimi_ocr import KimiOCR
 
-__all__ = ["QwenOCR"]
+__all__ = ["KimiOCR"]

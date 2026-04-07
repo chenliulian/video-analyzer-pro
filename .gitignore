@@ -56,3 +56,6 @@ extracted_frames/
 # 测试临时文件
 temp_*.jpg
 temp_*.txt
+
+/data
+/results

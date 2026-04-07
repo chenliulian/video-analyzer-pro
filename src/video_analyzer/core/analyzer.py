@@ -14,7 +14,7 @@ from typing import List, Tuple, Dict, Optional
 
 try:
     from moviepy import VideoFileClip
-    import whisper
+    from faster_whisper import WhisperModel
     from PIL import Image
     import cv2
     import numpy as np
@@ -24,9 +24,17 @@ except ImportError as e:
     sys.exit(1)
 
 # 导入本地模块
-from ..ocr.qwen_ocr import QwenOCR
+from ..ocr.kimi_ocr import KimiOCR
 from ..llm.refine_agent import TextRefineAgent
-from ..asr.qwen_asr import QwenASR
+from ..asr.kimi_asr import KimiASR
+
+# 尝试导入 Qwen ASR，如果失败则不使用
+try:
+    from ..asr.qwen_asr import QwenASR
+    HAS_QWEN_ASR = True
+except ImportError:
+    HAS_QWEN_ASR = False
+    QwenASR = None
 
 # 解决SSL证书问题
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -93,11 +101,12 @@ class VideoAnalyzerPro:
         self.pdf_file = self.results_dir / f"{self.video_id}_frames_pro.pdf"
         self.docx_file = self.results_dir / f"{self.video_id}_frames_pro.docx"
         
-        # 初始化OCR
+        # 初始化OCR (使用 Kimi k2.5)
         ocr_api_key = ocr_config.get("api_key") if ocr_config else None
-        ocr_model = ocr_config.get("model", "qwen-vl-max") if ocr_config else "qwen-vl-max"
+        ocr_base_url = ocr_config.get("base_url") if ocr_config else None
+        ocr_model = ocr_config.get("model", "kimi-k2.5") if ocr_config else "kimi-k2.5"
         try:
-            self.ocr = QwenOCR(api_key=ocr_api_key, model=ocr_model)
+            self.ocr = KimiOCR(api_key=ocr_api_key, base_url=ocr_base_url, model=ocr_model)
         except Exception as e:
             print(f"警告: OCR初始化失败 - {e}")
             self.ocr = None
@@ -117,19 +126,36 @@ class VideoAnalyzerPro:
         else:
             self.llm_agent = None
         
-        # 初始化ASR (Qwen)
+        # 初始化ASR
         self.asr_config = asr_config or {}
-        if asr_engine == "qwen":
+        self.kimi_asr = None
+        self.qwen_asr = None
+        
+        if asr_engine == "kimi":
+            # 使用 Kimi ASR
             try:
-                self.qwen_asr = QwenASR(
-                    api_key=self.asr_config.get("api_key"),
-                    region=self.asr_config.get("region", "intl")
+                self.kimi_asr = KimiASR(
+                    api_key=self.asr_config.get("api_key") or llm_config.get("api_key") if llm_config else None,
+                    base_url=self.asr_config.get("base_url") or llm_config.get("base_url") if llm_config else None,
+                    model=self.asr_config.get("model", "kimi-k2.5")
                 )
             except Exception as e:
-                print(f"警告: Qwen ASR初始化失败 - {e}")
+                print(f"警告: Kimi ASR初始化失败 - {e}")
+                self.kimi_asr = None
+        elif asr_engine == "qwen":
+            # 使用 Qwen ASR
+            if not HAS_QWEN_ASR:
+                print("警告: Qwen ASR 模块未安装，将使用 Whisper 作为替代")
                 self.qwen_asr = None
-        else:
-            self.qwen_asr = None
+            else:
+                try:
+                    self.qwen_asr = QwenASR(
+                        api_key=self.asr_config.get("api_key"),
+                        region=self.asr_config.get("region", "intl")
+                    )
+                except Exception as e:
+                    print(f"警告: Qwen ASR初始化失败 - {e}")
+                    self.qwen_asr = None
         
         # Whisper模型 (延迟加载)
         self.whisper_model = None
@@ -294,7 +320,10 @@ class VideoAnalyzerPro:
             print(f"✓ 发现已有转录文件: {self.transcript_file.name} (跳过)")
             return
         
-        if self.asr_engine == "qwen":
+        if self.asr_engine == "kimi":
+            # 使用 Kimi ASR
+            self._transcribe_with_kimi()
+        elif self.asr_engine == "qwen":
             # 使用Qwen ASR
             self._transcribe_with_qwen()
         else:
@@ -302,27 +331,33 @@ class VideoAnalyzerPro:
             self._transcribe_with_whisper()
     
     def _transcribe_with_whisper(self):
-        """使用Whisper进行转录"""
+        """使用 faster-whisper 进行转录"""
         # 加载Whisper模型
         if self.whisper_model is None:
             print(f"⏳ 正在加载 Whisper 模型 ({self.whisper_model_name})...")
-            self.whisper_model = whisper.load_model(self.whisper_model_name)
+            # 使用 faster-whisper，自动下载模型
+            self.whisper_model = WhisperModel(
+                self.whisper_model_name,
+                device="cpu",
+                compute_type="int8"
+            )
             print(f"✓ 模型加载成功")
         
         # 转录
         print(f"⏳ 正在转录音频 (这可能需要几分钟)...")
-        result = self.whisper_model.transcribe(str(self.audio_file), language="zh")
+        segments, info = self.whisper_model.transcribe(str(self.audio_file), language="zh")
         
         # 保存转录结果
+        segment_list = list(segments)  # 转换为列表
         with open(self.transcript_file, 'w', encoding='utf-8') as f:
-            for segment in result['segments']:
-                start = segment['start']
-                end = segment['end']
-                text = segment['text'].strip()
+            for segment in segment_list:
+                start = segment.start
+                end = segment.end
+                text = segment.text.strip()
                 f.write(f"[{start:.2f}s - {end:.2f}s] {text}\n")
         
         print(f"✓ 转录完成: {self.transcript_file}")
-        print(f"  总段落: {len(result['segments'])} 个")
+        print(f"  总段落: {len(segment_list)} 个")
     
     def _transcribe_with_qwen(self):
         """使用Qwen ASR进行转录"""
@@ -344,6 +379,32 @@ class VideoAnalyzerPro:
         
         if text:
             # 保存转录结果 (Qwen ASR返回完整文本,没有时间戳)
+            with open(self.transcript_file, 'w', encoding='utf-8') as f:
+                f.write(text)
+            
+            print(f"✓ 转录完成: {self.transcript_file}")
+            print(f"  总字符数: {len(text)}")
+        else:
+            print(f"❌ 转录失败")
+    
+    def _transcribe_with_kimi(self):
+        """使用 Kimi ASR 进行转录"""
+        if not self.kimi_asr:
+            print("❌ Kimi ASR 未初始化")
+            return
+        
+        print(f"⏳ 正在使用 Kimi ASR 转录音频...")
+        
+        language = self.asr_config.get("language", "zh")
+        
+        # 转录
+        text = self.kimi_asr.transcribe_audio(
+            str(self.audio_file),
+            language=language
+        )
+        
+        if text:
+            # 保存转录结果
             with open(self.transcript_file, 'w', encoding='utf-8') as f:
                 f.write(text)
             
@@ -530,12 +591,14 @@ class VideoAnalyzerPro:
         # 获取所有帧
         frames = sorted(self.frames_dir.glob("frame_*.jpg"))
         
-        print(f"⏳ 正在生成PDF...")
-        print(f"   图片数量: {len(frames)}")
-        print(f"   使用文字: {'LLM精炼' if self.use_llm else '简单合并'}")
-        
-        # 生成PDF
-        self._generate_pdf_document(frames, refined_data)
+        # 尝试生成PDF
+        try:
+            print(f"⏳ 正在生成PDF...")
+            print(f"   图片数量: {len(frames)}")
+            print(f"   使用文字: {'LLM精炼' if self.use_llm else '简单合并'}")
+            self._generate_pdf_document(frames, refined_data)
+        except ImportError:
+            print("⚠️  跳过PDF生成 (未安装 reportlab)")
         
         # 生成Word文档
         if HAS_DOCX:
@@ -840,7 +903,7 @@ def main():
     
     # ASR配置
     parser.add_argument('--asr-engine', default='whisper',
-                       choices=['whisper', 'qwen'],
+                       choices=['whisper', 'kimi', 'qwen'],
                        help='语音识别引擎 (默认: whisper)')
     parser.add_argument('--asr-api-key', help='ASR API Key (Qwen ASR使用)')
     parser.add_argument('--asr-region', default='intl',
@@ -856,10 +919,10 @@ def main():
     parser.add_argument('--model',  help='LLM模型名称')
     
     # OCR配置
-    parser.add_argument('--ocr-api-key', help='通义千问API Key')
-    parser.add_argument('--ocr-model', default='qwen-vl-max', 
-                       choices=['qwen-vl-max', 'qwen-vl-plus', 'qwen3-vl-plus'],
-                       help='OCR模型名称')
+    parser.add_argument('--ocr-api-key', help='OCR API Key (默认使用 LLM_API_KEY)')
+    parser.add_argument('--ocr-base-url', help='OCR API Base URL (默认使用 LLM_BASE_URL)')
+    parser.add_argument('--ocr-model', default='kimi-k2.5',
+                       help='OCR模型名称 (默认: kimi-k2.5)')
     
     args = parser.parse_args()
     
@@ -873,12 +936,15 @@ def main():
     # OCR配置
     ocr_config = {
         "api_key": args.ocr_api_key,
+        "base_url": args.ocr_base_url,
         "model": args.ocr_model
     }
     
     # ASR配置
     asr_config = {
         "api_key": args.asr_api_key,
+        "base_url": args.base_url,  # 使用 LLM 的 base_url
+        "model": args.model,  # 使用 LLM 的 model
         "region": args.asr_region,
         "language": args.asr_language,
         "enable_itn": args.asr_enable_itn
