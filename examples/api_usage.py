@@ -10,18 +10,19 @@ from pathlib import Path
 # 添加src到Python路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from video_analyzer.ocr import QwenOCR
-from video_analyzer.asr import QwenASR
+from video_analyzer.ocr import KimiOCR
+from video_analyzer.asr import KimiASR
 from video_analyzer.llm import TextRefineAgent
 
 
 def ocr_example():
     """OCR识别示例"""
     
-    # 初始化OCR
-    ocr = QwenOCR(
-        api_key="your-dashscope-api-key",  # 或从环境变量读取
-        model="qwen-vl-max"
+    # 初始化OCR (使用 Kimi)
+    ocr = KimiOCR(
+        api_key="your-api-key",  # 或从环境变量读取
+        base_url="https://api.openai.com/v1",
+        model="kimi-k2.5"
     )
     
     # 识别单张图片
@@ -40,17 +41,17 @@ def ocr_example():
 def asr_example():
     """语音识别示例"""
     
-    # 初始化ASR
-    asr = QwenASR(
-        api_key="your-dashscope-api-key",
-        region="intl"  # 或 "cn" 国内版
+    # 初始化ASR (使用 Kimi)
+    asr = KimiASR(
+        api_key="your-api-key",
+        base_url="https://api.openai.com/v1",
+        model="kimi-k2.5"
     )
     
     # 转录音频
     text = asr.transcribe_audio(
-        audio_file_path="path/to/audio.mp3",
-        language="zh",
-        enable_itn=False
+        audio_path="path/to/audio.mp3",
+        language="zh"
     )
     
     print(f"转录结果:\n{text}")
@@ -62,8 +63,8 @@ def llm_example():
     # 初始化Agent
     agent = TextRefineAgent(
         api_key="your-llm-api-key",
-        base_url="https://api.deepseek.com",
-        model="deepseek-chat",
+        base_url="https://api.openai.com/v1",
+        model="gpt-4",
         use_batch_mode=True
     )
     

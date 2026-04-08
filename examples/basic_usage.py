@@ -39,20 +39,22 @@ def advanced_example():
     # LLM配置
     llm_config = {
         "api_key": "your-api-key",  # 或从.env读取
-        "base_url": "https://api.deepseek.com",
-        "model": "deepseek-chat"
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4"
     }
     
-    # OCR配置
+    # OCR配置 (使用 Kimi)
     ocr_config = {
-        "api_key": "your-dashscope-key",  # 或从.env读取
-        "model": "qwen-vl-max"
+        "api_key": "your-api-key",  # 或从.env读取
+        "base_url": "https://api.openai.com/v1",
+        "model": "kimi-k2.5"
     }
     
-    # ASR配置
+    # ASR配置 (使用 Kimi)
     asr_config = {
-        "api_key": "your-dashscope-key",
-        "region": "intl",
+        "api_key": "your-api-key",
+        "base_url": "https://api.openai.com/v1",
+        "model": "kimi-k2.5",
         "language": "zh"
     }
     
@@ -63,7 +65,7 @@ def advanced_example():
         llm_config=llm_config,
         ocr_config=ocr_config,
         whisper_model="base",
-        asr_engine="qwen",  # 使用Qwen ASR
+        asr_engine="kimi",  # 使用 Kimi ASR
         asr_config=asr_config,
         skip_existing=True
     )

@@ -28,14 +28,6 @@ from ..ocr.kimi_ocr import KimiOCR
 from ..llm.refine_agent import TextRefineAgent
 from ..asr.kimi_asr import KimiASR
 
-# 尝试导入 Qwen ASR，如果失败则不使用
-try:
-    from ..asr.qwen_asr import QwenASR
-    HAS_QWEN_ASR = True
-except ImportError:
-    HAS_QWEN_ASR = False
-    QwenASR = None
-
 # 解决SSL证书问题
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -129,7 +121,6 @@ class VideoAnalyzerPro:
         # 初始化ASR
         self.asr_config = asr_config or {}
         self.kimi_asr = None
-        self.qwen_asr = None
         
         if asr_engine == "kimi":
             # 使用 Kimi ASR
@@ -143,19 +134,9 @@ class VideoAnalyzerPro:
                 print(f"警告: Kimi ASR初始化失败 - {e}")
                 self.kimi_asr = None
         elif asr_engine == "qwen":
-            # 使用 Qwen ASR
-            if not HAS_QWEN_ASR:
-                print("警告: Qwen ASR 模块未安装，将使用 Whisper 作为替代")
-                self.qwen_asr = None
-            else:
-                try:
-                    self.qwen_asr = QwenASR(
-                        api_key=self.asr_config.get("api_key"),
-                        region=self.asr_config.get("region", "intl")
-                    )
-                except Exception as e:
-                    print(f"警告: Qwen ASR初始化失败 - {e}")
-                    self.qwen_asr = None
+            # Qwen ASR 已移除，使用 Whisper 作为替代
+            print("警告: Qwen ASR 已移除，将使用 Whisper 作为替代")
+            self.asr_engine = "whisper"
         
         # Whisper模型 (延迟加载)
         self.whisper_model = None
@@ -323,9 +304,6 @@ class VideoAnalyzerPro:
         if self.asr_engine == "kimi":
             # 使用 Kimi ASR
             self._transcribe_with_kimi()
-        elif self.asr_engine == "qwen":
-            # 使用Qwen ASR
-            self._transcribe_with_qwen()
         else:
             # 使用Whisper
             self._transcribe_with_whisper()
@@ -358,34 +336,6 @@ class VideoAnalyzerPro:
         
         print(f"✓ 转录完成: {self.transcript_file}")
         print(f"  总段落: {len(segment_list)} 个")
-    
-    def _transcribe_with_qwen(self):
-        """使用Qwen ASR进行转录"""
-        if not self.qwen_asr:
-            print("❌ Qwen ASR未初始化")
-            return
-        
-        print(f"⏳ 正在使用 Qwen ASR 转录音频...")
-        
-        language = self.asr_config.get("language", "zh")
-        enable_itn = self.asr_config.get("enable_itn", False)
-        
-        # 转录
-        text = self.qwen_asr.transcribe_audio(
-            str(self.audio_file),
-            language=language,
-            enable_itn=enable_itn
-        )
-        
-        if text:
-            # 保存转录结果 (Qwen ASR返回完整文本,没有时间戳)
-            with open(self.transcript_file, 'w', encoding='utf-8') as f:
-                f.write(text)
-            
-            print(f"✓ 转录完成: {self.transcript_file}")
-            print(f"  总字符数: {len(text)}")
-        else:
-            print(f"❌ 转录失败")
     
     def _transcribe_with_kimi(self):
         """使用 Kimi ASR 进行转录"""
@@ -430,7 +380,7 @@ class VideoAnalyzerPro:
         # 获取所有帧
         frames = sorted(self.frames_dir.glob("frame_*.jpg"))
         print(f"⏳ 正在识别 {len(frames)} 张图片...")
-        print(f"   使用模型: 通义千问OCR")
+        print(f"   使用模型: Kimi k2.5 OCR")
         
         # 批量识别
         results = []
@@ -903,15 +853,10 @@ def main():
     
     # ASR配置
     parser.add_argument('--asr-engine', default='whisper',
-                       choices=['whisper', 'kimi', 'qwen'],
+                       choices=['whisper', 'kimi'],
                        help='语音识别引擎 (默认: whisper)')
-    parser.add_argument('--asr-api-key', help='ASR API Key (Qwen ASR使用)')
-    parser.add_argument('--asr-region', default='intl',
-                       choices=['intl', 'cn'],
-                       help='Qwen ASR区域 (默认: intl)')
+    parser.add_argument('--asr-api-key', help='ASR API Key (Kimi ASR使用)')
     parser.add_argument('--asr-language', default='zh', help='语音识别语言 (默认: zh)')
-    parser.add_argument('--asr-enable-itn', action='store_true', 
-                       help='启用ITN(逆文本正则化)')
     
     # LLM配置
     parser.add_argument('--api-key', help='LLM API Key')
@@ -945,9 +890,7 @@ def main():
         "api_key": args.asr_api_key,
         "base_url": args.base_url,  # 使用 LLM 的 base_url
         "model": args.model,  # 使用 LLM 的 model
-        "region": args.asr_region,
-        "language": args.asr_language,
-        "enable_itn": args.asr_enable_itn
+        "language": args.asr_language
     }
     
     # 创建分析器

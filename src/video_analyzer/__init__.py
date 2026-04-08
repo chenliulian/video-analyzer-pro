@@ -11,20 +11,12 @@ __email__ = "support@videoanalyzer.com"
 
 from .core.analyzer import VideoAnalyzerPro
 from .ocr.kimi_ocr import KimiOCR
+from .asr.kimi_asr import KimiASR
 from .llm.refine_agent import TextRefineAgent
 
-# 尝试导入 QwenASR，如果 dashscope 未安装则跳过
-try:
-    from .asr.qwen_asr import QwenASR
-    __all__ = [
-        "VideoAnalyzerPro",
-        "KimiOCR",
-        "QwenASR",
-        "TextRefineAgent",
-    ]
-except ImportError:
-    __all__ = [
-        "VideoAnalyzerPro",
-        "KimiOCR",
-        "TextRefineAgent",
-    ]
+__all__ = [
+    "VideoAnalyzerPro",
+    "KimiOCR",
+    "KimiASR",
+    "TextRefineAgent",
+]

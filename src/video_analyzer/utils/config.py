@@ -23,13 +23,16 @@ class Config:
         "LLM_BASE_URL": "https://api.openai.com/v1",
         "LLM_MODEL": "gpt-4",
         
-        # OCR 配置
-        "DASHSCOPE_API_KEY": None,
-        "QWEN_OCR_MODEL": "qwen-vl-max",
+        # OCR 配置 (使用 Kimi)
+        "OCR_API_KEY": None,  # 默认使用 LLM_API_KEY
+        "OCR_BASE_URL": None,  # 默认使用 LLM_BASE_URL
+        "OCR_MODEL": "kimi-k2.5",
         
         # ASR 配置
-        "ASR_ENGINE": "whisper",
-        "ASR_REGION": "intl",
+        "ASR_ENGINE": "whisper",  # whisper, kimi
+        "ASR_API_KEY": None,  # 默认使用 LLM_API_KEY
+        "ASR_BASE_URL": None,  # 默认使用 LLM_BASE_URL
+        "ASR_MODEL": "kimi-k2.5",
         "ASR_LANGUAGE": "zh",
         
         # 视频处理配置
@@ -48,40 +51,40 @@ class Config:
         for key in self.DEFAULTS.keys():
             env_value = os.getenv(key)
             if env_value is not None:
-                self._config[key] = env_value
-            else:
-                self._config[key] = self.DEFAULTS[key]
+                # 尝试转换为合适的类型
+                default_value = self.DEFAULTS[key]
+                if isinstance(default_value, bool):
+                    self._config[key] = env_value.lower() in ('true', '1', 'yes', 'on')
+                elif isinstance(default_value, int):
+                    self._config[key] = int(env_value)
+                elif isinstance(default_value, float):
+                    self._config[key] = float(env_value)
+                else:
+                    self._config[key] = env_value
     
     def get(self, key: str, default: Any = None) -> Any:
         """
         获取配置项
         
         参数:
-            key: 配置键名
+            key: 配置项名称
             default: 默认值
             
         返回:
-            配置值
+            配置项值
         """
-        return self._config.get(key, default)
-    
-    def set(self, key: str, value: Any):
-        """
-        设置配置项
+        # 首先检查 _config
+        if key in self._config:
+            return self._config[key]
         
-        参数:
-            key: 配置键名
-            value: 配置值
-        """
-        self._config[key] = value
+        # 然后检查 DEFAULTS
+        if key in self.DEFAULTS:
+            return self.DEFAULTS[key]
+        
+        return default
     
     def get_llm_config(self) -> Dict[str, Optional[str]]:
-        """
-        获取LLM配置
-        
-        返回:
-            LLM配置字典
-        """
+        """获取LLM配置"""
         return {
             "api_key": self.get("LLM_API_KEY"),
             "base_url": self.get("LLM_BASE_URL"),
@@ -89,83 +92,35 @@ class Config:
         }
     
     def get_ocr_config(self) -> Dict[str, Optional[str]]:
-        """
-        获取OCR配置
-        
-        返回:
-            OCR配置字典
-        """
+        """获取OCR配置"""
         return {
-            "api_key": self.get("DASHSCOPE_API_KEY"),
-            "model": self.get("QWEN_OCR_MODEL"),
+            "api_key": self.get("OCR_API_KEY") or self.get("LLM_API_KEY"),
+            "base_url": self.get("OCR_BASE_URL") or self.get("LLM_BASE_URL"),
+            "model": self.get("OCR_MODEL", "kimi-k2.5"),
         }
     
     def get_asr_config(self) -> Dict[str, Any]:
-        """
-        获取ASR配置
-        
-        返回:
-            ASR配置字典
-        """
+        """获取ASR配置"""
         return {
-            "api_key": self.get("DASHSCOPE_API_KEY"),
-            "region": self.get("ASR_REGION"),
-            "language": self.get("ASR_LANGUAGE"),
-            "engine": self.get("ASR_ENGINE"),
+            "engine": self.get("ASR_ENGINE", "whisper"),
+            "api_key": self.get("ASR_API_KEY") or self.get("LLM_API_KEY"),
+            "base_url": self.get("ASR_BASE_URL") or self.get("LLM_BASE_URL"),
+            "model": self.get("ASR_MODEL", "kimi-k2.5"),
+            "language": self.get("ASR_LANGUAGE", "zh"),
         }
+    
+    def set(self, key: str, value: Any):
+        """设置配置项"""
+        self._config[key] = value
+    
+    def __getitem__(self, key: str) -> Any:
+        """支持字典式访问"""
+        return self.get(key)
+    
+    def __setitem__(self, key: str, value: Any):
+        """支持字典式设置"""
+        self.set(key, value)
 
 
 # 全局配置实例
-_config_instance = None
-
-
-def get_config() -> Config:
-    """
-    获取全局配置实例
-    
-    返回:
-        Config实例
-    """
-    global _config_instance
-    if _config_instance is None:
-        _config_instance = Config()
-    return _config_instance
-
-
-def load_config(config_file: Optional[str] = None) -> Config:
-    """
-    加载配置文件
-    
-    参数:
-        config_file: 配置文件路径
-        
-    返回:
-        Config实例
-    """
-    config = get_config()
-    
-    if config_file and Path(config_file).exists():
-        # 可以扩展支持JSON/YAML配置文件
-        pass
-    
-    return config
-
-
-def get_api_key(service: str) -> Optional[str]:
-    """
-    获取API密钥
-    
-    参数:
-        service: 服务名称 ('llm', 'ocr', 'asr')
-        
-    返回:
-        API密钥
-    """
-    config = get_config()
-    
-    if service == "llm":
-        return config.get("LLM_API_KEY")
-    elif service in ("ocr", "asr"):
-        return config.get("DASHSCOPE_API_KEY")
-    
-    return None
+config = Config()
